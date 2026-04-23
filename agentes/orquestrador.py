@@ -43,7 +43,7 @@ def resumir(texto: str, max_chars: int = 400) -> str:
 
 def salvar_log(ideia: str, requisitos: str, codigo: str, resultado_qa: dict) -> None:
     """Grava um arquivo de log com todos os artefatos gerados."""
-    pasta = Path("logs")
+    pasta = Path(__file__).parent / "logs"
     pasta.mkdir(exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -151,7 +151,7 @@ def orquestrar(ideia: str, max_iter: int = MAX_ITERACOES) -> None:
         salvar_log(ideia, requisitos, codigo, resultado_qa)
 
     # Grava o código final em arquivo
-    saida = Path(f"codigo_gerado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py")
+    saida = Path(__file__).parent / f"codigo_gerado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
     saida.write_text(codigo, encoding="utf-8")
     print(f"  Código final salvo em: {saida}\n")
 

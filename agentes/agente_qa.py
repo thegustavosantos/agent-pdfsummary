@@ -51,7 +51,7 @@ Regras para deve_reiterar:
 - false → se veredito for "aprovado" ou "aprovado_com_ressalvas" sem bugs críticos"""
 
     resposta = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=1500,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],

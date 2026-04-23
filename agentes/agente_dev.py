@@ -4,7 +4,9 @@ client = anthropic.Anthropic()
 
 SYSTEM_PROMPT = """Você é um desenvolvedor Python sênior.
 Sua função é receber requisitos e entregar código funcional, bem comentado e pronto para rodar.
-Entregue apenas o código Python, sem explicações fora do código."""
+Entregue apenas o código Python, sem explicações fora do código.
+Antes de escrever, liste as decisões técnicas que vai tomar.
+"""
 
 def executar(requisitos: str, feedback_qa: str = None) -> str:
     """
@@ -39,7 +41,7 @@ Instruções:
 5. Inclua exemplo de uso comentado no final"""
 
     resposta = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=3000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
