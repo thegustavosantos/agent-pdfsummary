@@ -1,0 +1,32 @@
+# Credenciais — NUNCA versionar
+.env
+
+# Outputs gerados pelo orquestrador
+logs/
+codigo_gerado_*.py
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
