@@ -2,20 +2,23 @@ import anthropic
 
 client = anthropic.Anthropic()
 
-SYSTEM_PROMPT = """Você é um desenvolvedor Python sênior.
-Sua função é receber requisitos e entregar código funcional, bem comentado e pronto para rodar.
-Entregue apenas o código Python, sem explicações fora do código.
-Antes de escrever, liste as decisões técnicas que vai tomar.
-"""
+SYSTEM_PROMPT = """Você é um desenvolvedor Python sênior especializado em scripts CLI.
+Sua função é receber requisitos e entregar um script Python completo, funcional e pronto para rodar.
 
-def executar(requisitos: str, feedback_qa: str = None) -> str:
+Regras obrigatórias:
+- Entregue SEMPRE um script CLI — sem Streamlit, Flask, FastAPI ou qualquer framework web
+- O script deve ser executável via terminal: python resumidor.py arquivo.pdf
+- Escreva o script COMPLETO do início ao fim — nunca truncar ou usar reticências no meio do código
+- Apenas o código Python, sem explicações fora do código"""
+
+def executar(requisitos: str, plano: str = None, feedback_qa: str = None) -> str:
     """
-    Recebe requisitos do PO e retorna código Python.
+    Recebe requisitos do PO e plano técnico do Arquiteto e retorna código Python.
     Se feedback_qa for fornecido, corrige o código anterior com base no parecer do QA.
     """
 
     if feedback_qa:
-        prompt = f"""O QA reprovou ou pediu correções no seu código anterior.
+        prompt = f"""O QA reprovou ou pediu correcoes no seu codigo anterior.
 
 <feedback_qa>
 {feedback_qa}
@@ -25,24 +28,35 @@ def executar(requisitos: str, feedback_qa: str = None) -> str:
 {requisitos}
 </requisitos_originais>
 
-Corrija todos os problemas apontados pelo QA e entregue o código revisado completo."""
+<plano_tecnico>
+{plano or "Sem plano disponivel — use seu julgamento."}
+</plano_tecnico>
+
+Corrija todos os problemas apontados pelo QA seguindo o plano tecnico.
+Entregue o codigo COMPLETO revisado. Nao use reticencias nem deixe funcoes incompletas."""
     else:
-        prompt = f"""Com base nos requisitos abaixo, escreva um script Python funcional.
+        prompt = f"""Implemente o script Python CLI abaixo seguindo EXATAMENTE o plano tecnico do Arquiteto.
 
 <requisitos_po>
 {requisitos}
 </requisitos_po>
 
-Instruções:
-1. Use PyMuPDF (fitz) para extração de texto de PDFs
-2. Use a biblioteca anthropic para geração do resumo
-3. Trate erros: arquivo não encontrado, PDF corrompido, texto vazio
-4. Adicione comentários explicando cada bloco principal
-5. Inclua exemplo de uso comentado no final"""
+<plano_tecnico>
+{plano or "Sem plano disponivel — use seu julgamento."}
+</plano_tecnico>
+
+Instrucoes:
+1. Siga o plano tecnico a risca: use os nomes de funcoes, parametros e retornos definidos
+2. Implemente TODOS os pontos de falha listados no plano
+3. Use PyMuPDF (fitz) para extracao de texto e anthropic para o resumo
+4. Adicione comentarios explicando cada bloco
+5. Use argparse conforme o plano define
+
+IMPORTANTE: Escreva o script inteiro, do import ate a ultima linha. Nunca truncar."""
 
     resposta = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=3000,
+        max_tokens=6000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     )

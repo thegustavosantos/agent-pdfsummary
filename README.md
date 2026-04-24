@@ -1,35 +1,36 @@
 # agent-pdfsummary
 
-Orquestrador multi-agente que transforma uma ideia em código Python testado e aprovado — automaticamente.
+Pipeline multi-agente especializado em geração de código Python para resumo de PDFs.
 
-O pipeline segue o fluxo **PO → Dev → QA**, com loop de feedback até aprovação ou limite de iterações.
+O pipeline segue o fluxo **PO → Arquiteto → Dev → QA**, com loop de feedback entre Dev e QA até aprovação ou limite de iterações.
 
 ```
-ideia (texto)
-    │
-    ▼
-┌─────────┐     requisitos      ┌─────────┐     código        ┌─────────┐
-│  Agente │ ─────────────────▶  │  Agente │ ───────────────▶  │  Agente │
-│   PO    │                     │   Dev   │  ◀─── feedback ── │   QA    │
-└─────────┘                     └─────────┘   (se reprovado)  └─────────┘
-                                                                    │
-                                                              aprovado?
-                                                                    │
-                                                             codigo_gerado.py
+┌──────────┐  requisitos  ┌────────────┐  plano técnico  ┌─────────┐
+│  Agente  │ ───────────▶ │   Agente   │ ──────────────▶ │  Agente │
+│    PO    │              │  Arquiteto │                  │   Dev   │
+└──────────┘              └────────────┘                  └────┬────┘
+                                                               │  código
+                                                          ┌────▼────┐
+                                                          │  Agente │
+                                                          │   QA    │
+                                                          └────┬────┘
+                                                               │
+                                              reprovado? ──────┘ (feedback → Dev)
+                                              aprovado?  ──────▶ codigo_gerado.py
 ```
 
 ## Estrutura
 
 ```
 agent-pdfsummary/
-├── agentes/
-│   ├── orquestrador.py   # ponto de entrada — orquestra o pipeline
-│   ├── agente_po.py      # gera requisitos a partir da ideia
-│   ├── agente_dev.py     # escreve e corrige o código
-│   └── agente_qa.py      # analisa, retorna veredito em JSON
-├── tests/
-│   └── test_resumidor.py # testes pytest gerados pelo QA
-├── logs/                 # runs gravadas em JSON (gitignored)
+├── agents/
+│   ├── orquestrador.py      # ponto de entrada — orquestra o pipeline
+│   ├── agente_po.py         # define requisitos do domínio PDF summary
+│   ├── agente_arquiteto.py  # define plano técnico antes do Dev escrever
+│   ├── agente_dev.py        # implementa o código seguindo o plano
+│   └── agente_qa.py         # analisa e retorna veredito em JSON
+├── outputs/                 # código gerado em cada run (versionado)
+├── logs/                    # logs JSON de cada run (gitignored)
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -39,7 +40,7 @@ agent-pdfsummary/
 ## Instalação
 
 ```bash
-git clone https://github.com/seu-usuario/agent-pdfsummary.git
+git clone https://github.com/thegustavosantos/agent-pdfsummary.git
 cd agent-pdfsummary
 
 python -m venv .venv
@@ -54,25 +55,23 @@ cp .env.example .env
 ## Uso
 
 ```bash
-cd agentes
+cd agents
 
-# ideia padrão: resumir PDFs
+# rodar o pipeline completo
 python orquestrador.py
 
-# outra ideia de produto
-python orquestrador.py --ideia "transcrever áudios para texto"
-
-# mais tentativas de correção pelo Dev
-python orquestrador.py --ideia "resumir PDFs" --max-iter 5
+# permitir mais tentativas de correção pelo Dev
+python orquestrador.py --max-iter 5
 ```
 
 ## Como funciona
 
-1. **PO** recebe a ideia e gera requisitos funcionais, não funcionais e critérios de aceitação
-2. **Dev** recebe os requisitos e escreve o código Python
-3. **QA** analisa o código e retorna um JSON com `veredito`, `bugs`, `cobertura` e `deve_reiterar`
-4. Se `deve_reiterar = true`, o feedback volta ao Dev para correção — o ciclo se repete
-5. Ao final, o código aprovado é salvo em `codigo_gerado_<timestamp>.py` e o log em `logs/`
+1. **PO** gera requisitos funcionais e técnicos para um script CLI de resumo de PDFs
+2. **Arquiteto** recebe os requisitos e entrega um plano técnico: funções, fluxo de dados, constantes, pontos de falha e formato de saída
+3. **Dev** implementa o script seguindo exatamente o plano do Arquiteto
+4. **QA** analisa o código e retorna um JSON com `veredito`, `bugs`, `cobertura` e `deve_reiterar`
+5. Se `deve_reiterar = true`, o feedback volta ao Dev para correção — o ciclo se repete
+6. Ao final, o código aprovado é salvo em `codigo_gerado_<timestamp>.py` e o log completo em `logs/`
 
 ## Vereditos do QA
 
