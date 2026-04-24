@@ -12,11 +12,20 @@ Regras obrigatórias:
 - Escreva o script COMPLETO do início ao fim — nunca truncar ou usar reticências no meio do código
 - Apenas o código Python, sem explicações fora do código"""
 
-def executar(requisitos: str, plano: str = None, feedback_qa: str = None) -> str:
+def executar(requisitos: str, plano: str = None, feedback_qa: str = None, memoria: str = None) -> str:
     """
-    Recebe requisitos do PO e plano técnico do Arquiteto e retorna código Python.
-    Se feedback_qa for fornecido, corrige o código anterior com base no parecer do QA.
+    Recebe requisitos, plano técnico, feedback do QA e memória da run anterior.
     """
+
+    bloco_memoria = ""
+    if memoria:
+        bloco_memoria = f"""
+<memoria_run_anterior>
+{memoria}
+</memoria_run_anterior>
+
+Leve em conta os problemas da run anterior listados acima para não repeti-los.
+"""
 
     if feedback_qa:
         prompt = f"""O QA reprovou ou pediu correcoes no seu codigo anterior.
@@ -32,7 +41,7 @@ def executar(requisitos: str, plano: str = None, feedback_qa: str = None) -> str
 <plano_tecnico>
 {plano or "Sem plano disponivel — use seu julgamento."}
 </plano_tecnico>
-
+{bloco_memoria}
 Corrija todos os problemas apontados pelo QA seguindo o plano tecnico.
 Entregue o codigo COMPLETO revisado. Nao use reticencias nem deixe funcoes incompletas."""
     else:
@@ -45,7 +54,7 @@ Entregue o codigo COMPLETO revisado. Nao use reticencias nem deixe funcoes incom
 <plano_tecnico>
 {plano or "Sem plano disponivel — use seu julgamento."}
 </plano_tecnico>
-
+{bloco_memoria}
 Instrucoes:
 1. Siga o plano tecnico a risca: use os nomes de funcoes, parametros e retornos definidos
 2. Implemente TODOS os pontos de falha listados no plano

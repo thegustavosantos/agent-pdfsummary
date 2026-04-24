@@ -1,10 +1,11 @@
 """
 orquestrador.py
 ───────────────
-Pipeline multi-agente especializado em geração de código para resumo de PDFs.
+Pipeline principal: Dev → QA (com loop de feedback) → Reviewer.
 
-Fluxo: PO → Arquiteto → Dev → QA
-Se o QA reprovar, devolve o feedback ao Dev e reitera (até MAX_ITERACOES).
+Lê requisitos e plano de discovery.md — gerado uma única vez por discovery.py.
+Lê o log da run anterior para passar contexto de memória ao Dev.
+Ao final, o Reviewer compara a versão gerada com a anterior e aponta regressões.
 
 Uso:
     python orquestrador.py
@@ -17,16 +18,17 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 
-import agente_po
-import agente_arquiteto
 import agente_dev
 import agente_qa
-from config import MAX_ITERACOES as MAX_ITERACOES_DEFAULT
+import agente_reviewer
+from config import (
+    MAX_ITERACOES as MAX_ITERACOES_DEFAULT,
+    DISCOVERY_FILE,
+    LOGS_DIR,
+    OUTPUTS_DIR,
+)
 
-# ── Configuração ──────────────────────────────────────────────────────────────
-IDEIA         = "resumir PDFs automaticamente para o usuário via script CLI em Python"
-MAX_ITERACOES = MAX_ITERACOES_DEFAULT
-SALVAR_LOG    = True
+SALVAR_LOG = True
 
 
 # ── Helpers de display ────────────────────────────────────────────────────────
@@ -37,20 +39,85 @@ def separador(titulo: str, char: str = "─", largura: int = 60) -> None:
 
 
 def resumir(texto: str, max_chars: int = 400) -> str:
-    """Trunca texto longo para exibição no terminal."""
     if len(texto) <= max_chars:
         return texto
     return texto[:max_chars] + f"\n  ... ({len(texto) - max_chars} chars omitidos)"
 
 
-def salvar_log(requisitos: str, plano: str, codigo: str, resultado_qa: dict) -> None:
-    """Grava um arquivo de log com todos os artefatos gerados."""
-    pasta = Path(__file__).parent / "logs"
-    pasta.mkdir(exist_ok=True)
+# ── Discovery ─────────────────────────────────────────────────────────────────
+def carregar_discovery() -> dict:
+    """Lê discovery.md. Aborta se não existir ou estiver mal formatado."""
+    if not DISCOVERY_FILE.exists():
+        print("\n  Erro: discovery.md não encontrado.")
+        print("  Execute primeiro: python discovery.py\n")
+        raise SystemExit(1)
 
+    texto = DISCOVERY_FILE.read_text(encoding="utf-8")
+
+    gerado_em = "?"
+    for linha in texto.splitlines():
+        if linha.startswith("**Gerado em:**"):
+            gerado_em = linha.split("**Gerado em:**", 1)[1].strip()
+            break
+
+    partes_req = texto.split("## Requisitos", 1)
+    if len(partes_req) < 2:
+        print("\n  Erro: seção '## Requisitos' não encontrada em discovery.md\n")
+        raise SystemExit(1)
+
+    partes_plano = partes_req[1].split("## Plano Técnico", 1)
+    if len(partes_plano) < 2:
+        print("\n  Erro: seção '## Plano Técnico' não encontrada em discovery.md\n")
+        raise SystemExit(1)
+
+    requisitos = partes_req[1].split("## Plano Técnico", 1)[0].strip()
+    plano      = partes_plano[1].strip()
+
+    print(f"  Discovery carregado ({gerado_em})")
+    return {"gerado_em": gerado_em, "requisitos": requisitos, "plano": plano}
+
+
+# ── Memória — log da run anterior ─────────────────────────────────────────────
+def carregar_ultimo_log() -> dict | None:
+    """Retorna o log mais recente em logs/ ou None se não houver."""
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    logs = sorted(LOGS_DIR.glob("run_*.json"))
+    if not logs:
+        return None
+    return json.loads(logs[-1].read_text(encoding="utf-8"))
+
+
+def montar_contexto_memoria(log: dict | None) -> str | None:
+    """Transforma o log anterior em contexto legível para o Dev."""
+    if not log:
+        return None
+
+    qa = log.get("qa", {})
+    bugs = qa.get("bugs", [])
+    veredito = qa.get("veredito", "desconhecido")
+    parecer = qa.get("parecer", "")
+    timestamp = log.get("timestamp", "?")
+
+    if not bugs and veredito == "aprovado":
+        return None
+
+    linhas = [
+        f"Na run anterior ({timestamp}), o QA retornou veredito '{veredito}'.",
+        f"Parecer: {parecer}",
+    ]
+    if bugs:
+        linhas.append("Bugs reportados que devem ser evitados nesta versão:")
+        for b in bugs:
+            linhas.append(f"  - {b}")
+
+    return "\n".join(linhas)
+
+
+# ── Log ───────────────────────────────────────────────────────────────────────
+def salvar_log(requisitos: str, plano: str, codigo: str, resultado_qa: dict) -> Path:
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    arquivo   = pasta / f"run_{timestamp}.json"
-
+    arquivo = LOGS_DIR / f"run_{timestamp}.json"
     log = {
         "timestamp" : timestamp,
         "requisitos": requisitos,
@@ -58,49 +125,56 @@ def salvar_log(requisitos: str, plano: str, codigo: str, resultado_qa: dict) -> 
         "codigo"    : codigo,
         "qa"        : resultado_qa,
     }
-
     arquivo.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n  Log salvo em: {arquivo}")
+    return arquivo
 
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
-def orquestrar(max_iter: int = MAX_ITERACOES) -> None:
+def orquestrar(max_iter: int = MAX_ITERACOES_DEFAULT) -> None:
 
     print(f"\n{'═' * 60}")
-    print(f"  AGENT-PDFSUMMARY — Pipeline multi-agente")
+    print(f"  AGENT-PDFSUMMARY — Pipeline")
     print(f"{'═' * 60}")
 
-    # ── FASE 1: PO ────────────────────────────────────────────────────────────
-    separador("AGENTE 1 — Product Owner")
-    print("  Gerando requisitos...")
+    # ── Carrega discovery ─────────────────────────────────────────────────────
+    separador("DISCOVERY")
+    discovery  = carregar_discovery()
+    requisitos = discovery["requisitos"]
+    plano      = discovery["plano"]
 
-    requisitos = agente_po.executar(IDEIA)
-    print(resumir(requisitos))
+    # ── Carrega memória da run anterior ───────────────────────────────────────
+    ultimo_log     = carregar_ultimo_log()
+    contexto_memoria = montar_contexto_memoria(ultimo_log)
+    codigo_anterior  = ultimo_log.get("codigo") if ultimo_log else None
+    qa_anterior      = ultimo_log.get("qa", {}) if ultimo_log else {}
 
-    # ── FASE 2: Arquiteto ─────────────────────────────────────────────────────
-    separador("AGENTE 2 — Arquiteto")
-    print("  Definindo plano técnico...")
+    if contexto_memoria:
+        separador("MEMÓRIA — Run anterior")
+        print(resumir(contexto_memoria))
+    else:
+        print("\n  Sem runs anteriores — iniciando do zero.")
 
-    plano = agente_arquiteto.executar(requisitos)
-    print(resumir(plano))
-
-    # ── FASE 3 + 4: Dev → QA (com loop de feedback) ───────────────────────────
+    # ── Dev → QA (com loop de feedback) ───────────────────────────────────────
     feedback_qa  = None
     resultado_qa = None
     codigo       = None
 
     for iteracao in range(1, max_iter + 1):
 
-        # Dev
-        label = "AGENTE 3 — Dev" if iteracao == 1 else f"AGENTE 3 — Dev (revisão {iteracao - 1})"
+        label = "AGENTE 1 — Dev" if iteracao == 1 else f"AGENTE 1 — Dev (revisão {iteracao - 1})"
         separador(label)
         print("  Escrevendo código..." if iteracao == 1 else "  Corrigindo com base no feedback do QA...")
 
-        codigo = agente_dev.executar(requisitos, plano=plano, feedback_qa=feedback_qa)
+        codigo = agente_dev.executar(
+            requisitos,
+            plano=plano,
+            feedback_qa=feedback_qa,
+            memoria=contexto_memoria,
+        )
         print(resumir(codigo, max_chars=500))
 
-        # QA
-        separador(f"AGENTE 4 — QA (iteração {iteracao}/{max_iter})")
+        separador(f"AGENTE 2 — QA (iteração {iteracao}/{max_iter})")
         print("  Analisando código...")
 
         resultado_qa  = agente_qa.executar(codigo, requisitos)
@@ -141,18 +215,49 @@ def orquestrar(max_iter: int = MAX_ITERACOES) -> None:
         feedback_qa += f"\n\nParecer geral: {parecer}"
         print(f"\n  Devolvendo feedback ao Dev para correção...")
 
+    # ── Reviewer — compara com versão anterior ────────────────────────────────
+    if codigo_anterior:
+        separador("AGENTE 3 — Reviewer")
+        print("  Comparando com versão anterior...")
+
+        review = agente_reviewer.executar(codigo_anterior, codigo, qa_anterior)
+
+        aprovado_review = review.get("aprovado", True)
+        regressoes      = review.get("regressoes", [])
+        evolucoes       = review.get("evolucoes", [])
+        parecer_review  = review.get("parecer", "")
+
+        icone_review = "✅" if aprovado_review else "⚠️"
+        print(f"\n  {icone_review} {parecer_review}")
+
+        if evolucoes:
+            print(f"\n  Evoluções ({len(evolucoes)}):")
+            for e in evolucoes:
+                print(f"    + {e}")
+
+        if regressoes:
+            print(f"\n  Regressões ({len(regressoes)}):")
+            for r in regressoes:
+                print(f"    - {r}")
+    else:
+        review = {}
+        print("\n  Sem versão anterior — Reviewer pulado.")
+
     # ── Resultado final ───────────────────────────────────────────────────────
     separador("RESULTADO FINAL", char="═")
     print(f"\n  Iterações realizadas : {iteracao}")
-    print(f"  Veredito final       : {resultado_qa.get('veredito', '?').upper().replace('_', ' ')}")
+    print(f"  Veredito QA          : {resultado_qa.get('veredito', '?').upper().replace('_', ' ')}")
+    if review:
+        status_review = "SEM REGRESSÕES" if review.get("aprovado") else "⚠️  REGRESSÕES DETECTADAS"
+        print(f"  Reviewer             : {status_review}")
     print(f"\n{'═' * 60}\n")
 
+    # ── Salva log e código ────────────────────────────────────────────────────
     if SALVAR_LOG:
         salvar_log(requisitos, plano, codigo, resultado_qa)
 
-    pasta_outputs = Path(__file__).parent.parent / "outputs"
-    pasta_outputs.mkdir(exist_ok=True)
-    saida = pasta_outputs / f"codigo_gerado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
+    OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+    saida = OUTPUTS_DIR / f"codigo_gerado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
     saida.write_text(codigo, encoding="utf-8")
     print(f"  Código final salvo em: {saida}\n")
 
@@ -160,10 +265,13 @@ def orquestrar(max_iter: int = MAX_ITERACOES) -> None:
 # ── CLI ───────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
-        description="agent-pdfsummary — pipeline multi-agente PO → Arquiteto → Dev → QA",
+        description="agent-pdfsummary — pipeline Dev → QA → Reviewer",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""
+            Pré-requisito: rodar discovery.py antes da primeira execução.
+
             Exemplos:
+              python discovery.py
               python orquestrador.py
               python orquestrador.py --max-iter 5
         """)
@@ -171,8 +279,8 @@ def main():
     parser.add_argument(
         "--max-iter",
         type=int,
-        default=MAX_ITERACOES,
-        help=f"Máximo de iterações Dev→QA (default: {MAX_ITERACOES})"
+        default=MAX_ITERACOES_DEFAULT,
+        help=f"Máximo de iterações Dev→QA (default: {MAX_ITERACOES_DEFAULT})"
     )
 
     args = parser.parse_args()
