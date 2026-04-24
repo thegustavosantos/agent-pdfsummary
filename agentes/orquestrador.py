@@ -21,10 +21,11 @@ import agente_po
 import agente_arquiteto
 import agente_dev
 import agente_qa
+from config import MAX_ITERACOES as MAX_ITERACOES_DEFAULT
 
 # ── Configuração ──────────────────────────────────────────────────────────────
 IDEIA         = "resumir PDFs automaticamente para o usuário via script CLI em Python"
-MAX_ITERACOES = 3
+MAX_ITERACOES = MAX_ITERACOES_DEFAULT
 SALVAR_LOG    = True
 
 

@@ -1,4 +1,5 @@
 import anthropic
+from config import MODELO_AGENTES, MODELO_GERADO
 
 client = anthropic.Anthropic()
 
@@ -32,6 +33,7 @@ Entregue SOMENTE estas seções:
 
 3. CONSTANTES E CONFIGURAÇÕES
    Valores fixos que o Dev deve declarar no topo do arquivo (limites, nomes, etc)
+   IMPORTANTE: nunca inclua o nome do modelo Anthropic nas constantes — o Dev usará sempre "{MODELO_GERADO}"
 
 4. PONTOS DE FALHA
    Lista de erros esperados e como cada um deve ser tratado (qual exceção, qual mensagem)
@@ -42,7 +44,7 @@ Entregue SOMENTE estas seções:
 Sem introduções. Sem conclusões. Apenas as 5 seções."""
 
     resposta = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODELO_AGENTES,
         max_tokens=1500,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],

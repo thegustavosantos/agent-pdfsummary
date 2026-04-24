@@ -1,5 +1,6 @@
 import anthropic
 import json
+from config import MODELO_AGENTES
 
 client = anthropic.Anthropic()
 
@@ -51,7 +52,7 @@ Regras para deve_reiterar:
 - false → se veredito for "aprovado" ou "aprovado_com_ressalvas" sem bugs críticos"""
 
     resposta = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODELO_AGENTES,
         max_tokens=1500,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],

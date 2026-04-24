@@ -1,4 +1,5 @@
 import anthropic
+from config import MODELO_AGENTES
 
 client = anthropic.Anthropic()
 
@@ -36,7 +37,7 @@ Escreva SOMENTE:
 Cada item em uma linha curta. Sem subtópicos. Sem stack tecnológica. Sem arquitetura."""
 
     resposta = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODELO_AGENTES,
         max_tokens=1000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],

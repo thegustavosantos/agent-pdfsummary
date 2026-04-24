@@ -1,4 +1,5 @@
 import anthropic
+from config import MODELO_AGENTES, MODELO_GERADO
 
 client = anthropic.Anthropic()
 
@@ -49,13 +50,14 @@ Instrucoes:
 1. Siga o plano tecnico a risca: use os nomes de funcoes, parametros e retornos definidos
 2. Implemente TODOS os pontos de falha listados no plano
 3. Use PyMuPDF (fitz) para extracao de texto e anthropic para o resumo
-4. Adicione comentarios explicando cada bloco
-5. Use argparse conforme o plano define
+4. Use SEMPRE o modelo "{MODELO_GERADO}" na chamada à API — ignore qualquer outro modelo que apareça no plano
+5. Adicione comentarios explicando cada bloco
+6. Use argparse conforme o plano define
 
 IMPORTANTE: Escreva o script inteiro, do import ate a ultima linha. Nunca truncar."""
 
     resposta = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=MODELO_AGENTES,
         max_tokens=6000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
