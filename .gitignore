@@ -1,9 +1,9 @@
 # Credenciais — NUNCA versionar
 .env
 
-# Outputs gerados pelo orquestrador
+# Logs gerados pelo orquestrador (apenas local)
+agents/logs/
 logs/
-codigo_gerado_*.py
 
 # Python
 __pycache__/
