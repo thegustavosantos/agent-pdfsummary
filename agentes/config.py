@@ -24,3 +24,4 @@ MAX_ITERACOES  = 3
 DISCOVERY_FILE = ROOT / "discovery.md"     # requisitos + plano salvos pelo PO/Arquiteto
 LOGS_DIR       = Path(__file__).parent / "logs"
 OUTPUTS_DIR    = ROOT / "outputs"
+SANDBOX_DIR    = Path(__file__).parent / "sandbox"  # pasta isolada para execução de código

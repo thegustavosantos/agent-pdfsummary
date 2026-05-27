@@ -1,5 +1,7 @@
+import re
 import anthropic
 from config import MODELO_AGENTES, MODELO_GERADO
+from executor_shell import verificar_sintaxe, salvar_na_sandbox
 
 client = anthropic.Anthropic()
 
@@ -12,9 +14,35 @@ Regras obrigatórias:
 - Escreva o script COMPLETO do início ao fim — nunca truncar ou usar reticências no meio do código
 - Apenas o código Python, sem explicações fora do código"""
 
+MAX_TENTATIVAS_SINTAXE = 3
+
+
+def _extrair_codigo(texto: str) -> str:
+    """Remove blocos markdown ```python se o modelo os incluir."""
+    match = re.search(r"```python\s*(.*?)```", texto, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    match = re.search(r"```\s*(.*?)```", texto, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return texto.strip()
+
+
+def _gerar_codigo(prompt: str) -> str:
+    """Chama a API e retorna o código extraído."""
+    resposta = client.messages.create(
+        model=MODELO_AGENTES,
+        max_tokens=6000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _extrair_codigo(resposta.content[0].text)
+
+
 def executar(requisitos: str, plano: str = None, feedback_qa: str = None, memoria: str = None) -> str:
     """
     Recebe requisitos, plano técnico, feedback do QA e memória da run anterior.
+    Após gerar o código, valida a sintaxe no shell e corrige automaticamente se necessário.
     """
 
     bloco_memoria = ""
@@ -65,11 +93,41 @@ Instrucoes:
 
 IMPORTANTE: Escreva o script inteiro, do import ate a ultima linha. Nunca truncar."""
 
-    resposta = client.messages.create(
-        model=MODELO_AGENTES,
-        max_tokens=6000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    # ── Loop de auto-validação de sintaxe ─────────────────────────────────────
+    codigo = _gerar_codigo(prompt)
 
-    return resposta.content[0].text.strip()
+    for tentativa in range(1, MAX_TENTATIVAS_SINTAXE + 1):
+        caminho = salvar_na_sandbox(codigo, "resumidor.py")
+        resultado = verificar_sintaxe(caminho)
+
+        if resultado["sucesso"]:
+            if tentativa > 1:
+                print(f"  [dev] sintaxe OK na tentativa {tentativa}")
+            else:
+                print("  [dev] sintaxe OK ✓")
+            break
+
+        # Sintaxe falhou — pede correção focada no erro
+        erro = resultado["stderr"]
+        print(f"  [dev] erro de sintaxe (tentativa {tentativa}/{MAX_TENTATIVAS_SINTAXE}): {erro[:200]}")
+
+        if tentativa == MAX_TENTATIVAS_SINTAXE:
+            print("  [dev] limite de correções de sintaxe atingido — entregando código mesmo assim")
+            break
+
+        prompt_correcao = f"""O código abaixo tem um erro de sintaxe Python.
+
+Erro reportado pelo interpretador:
+{erro}
+
+Código com erro:
+```python
+{codigo}
+```
+
+Corrija APENAS o erro de sintaxe e entregue o código completo corrigido.
+Não altere nenhuma outra parte do código."""
+
+        codigo = _gerar_codigo(prompt_correcao)
+
+    return codigo
