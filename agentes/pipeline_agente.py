@@ -1,9 +1,9 @@
 """
-orquestrador_agente.py
-──────────────────────
+pipeline_agente.py
+──────────────────
 Orquestrador com raciocínio dinâmico usando Stateless Orchestrator pattern.
 
-Diferença do orquestrador.py (sequencial fixo):
+Diferença do pipeline_sequencial.py (sequencial fixo):
 - Um LLM decide qual agente chamar a seguir com base no estado atual
 - O contexto passado ao decisor é sempre pequeno e fixo — sem acúmulo de histórico
 - A sequência emerge do raciocínio, não do código
@@ -11,8 +11,8 @@ Diferença do orquestrador.py (sequencial fixo):
 Custo por decisão: ~500 tokens (fixo, independente de iterações)
 
 Uso:
-    python orquestrador_agente.py
-    python orquestrador_agente.py --max-iter 5 --verbose
+    python pipeline_agente.py
+    python pipeline_agente.py --max-iter 5 --verbose
 """
 
 import json
@@ -358,9 +358,9 @@ def main():
             Pré-requisito: rodar discovery.py antes da primeira execução.
 
             Exemplos:
-              python orquestrador_agente.py
-              python orquestrador_agente.py --max-iter 5
-              python orquestrador_agente.py --verbose   # mostra estado a cada decisão
+              python pipeline_agente.py
+              python pipeline_agente.py --max-iter 5
+              python pipeline_agente.py --verbose   # mostra estado a cada decisão
         """)
     )
     parser.add_argument(

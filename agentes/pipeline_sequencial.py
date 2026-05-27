@@ -1,6 +1,6 @@
 """
-orquestrador.py
-───────────────
+pipeline_sequencial.py
+──────────────────────
 Pipeline principal: Dev → QA (com loop de feedback) → Reviewer.
 
 Lê requisitos e plano de discovery.md — gerado uma única vez por discovery.py.
@@ -8,8 +8,8 @@ Lê o log da run anterior para passar contexto de memória ao Dev.
 Ao final, o Reviewer compara a versão gerada com a anterior e aponta regressões.
 
 Uso:
-    python orquestrador.py
-    python orquestrador.py --max-iter 5
+    python pipeline_sequencial.py
+    python pipeline_sequencial.py --max-iter 5
 """
 
 import json
@@ -272,8 +272,8 @@ def main():
 
             Exemplos:
               python discovery.py
-              python orquestrador.py
-              python orquestrador.py --max-iter 5
+              python pipeline_sequencial.py
+              python pipeline_sequencial.py --max-iter 5
         """)
     )
     parser.add_argument(

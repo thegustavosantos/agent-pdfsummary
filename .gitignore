@@ -1,9 +1,11 @@
 # Credenciais — NUNCA versionar
 .env
 
-# Logs gerados pelo orquestrador (apenas local)
-agents/logs/
+# Logs gerados pelo pipeline (apenas local)
 logs/
+
+# Sandbox de execução de código (apenas local)
+agentes/sandbox/
 
 # Python
 __pycache__/

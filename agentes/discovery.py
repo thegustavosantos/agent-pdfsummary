@@ -78,7 +78,7 @@ def rodar_discovery(force: bool = False) -> None:
     print(f"\n{'═' * 60}")
     print(f"  Discovery salvo em: {DISCOVERY_FILE}")
     print(f"  Você pode editar discovery.md antes de rodar o pipeline.")
-    print(f"  Execute 'python orquestrador.py' para rodar o pipeline.")
+    print(f"  Execute 'python pipeline_sequencial.py' para rodar o pipeline.")
     print(f"{'═' * 60}\n")
 
 

@@ -36,16 +36,17 @@ O pipeline é dividido em duas fases: **Discovery** (executado uma única vez) e
 ```
 agent-pdfsummary/
 ├── agentes/
-│   ├── discovery.py         # fase 1 — roda PO + Arquiteto, gera discovery.md
-│   ├── orquestrador.py      # fase 2 — pipeline Dev → QA → Reviewer
-│   ├── agente_po.py         # define requisitos do domínio PDF summary
-│   ├── agente_arquiteto.py  # define plano técnico antes do Dev escrever
-│   ├── agente_dev.py        # implementa o código seguindo o plano
-│   ├── agente_qa.py         # analisa e retorna veredito em JSON
-│   ├── agente_reviewer.py   # compara versões e detecta regressões
-│   ├── config.py            # configuração central (modelo, caminhos, limites)
-│   └── logs/                # log JSON de cada run (gitignored)
-├── outputs/                 # código gerado em cada run
+│   ├── discovery.py             # fase 1 — roda PO + Arquiteto, gera discovery.md
+│   ├── pipeline_sequencial.py   # fase 2 — pipeline Dev → QA → Reviewer (sequencial fixo)
+│   ├── pipeline_agente.py       # fase 2 alternativa — orquestrador com decisor LLM
+│   ├── agente_po.py             # define requisitos do domínio PDF summary
+│   ├── agente_arquiteto.py      # define plano técnico antes do Dev escrever
+│   ├── agente_dev.py            # implementa o código seguindo o plano
+│   ├── agente_qa.py             # analisa e retorna veredito em JSON
+│   ├── agente_reviewer.py       # compara versões e detecta regressões
+│   └── config.py                # configuração central (modelo, caminhos, limites)
+├── logs/                        # log JSON de cada run (gitignored)
+├── outputs/                     # código gerado em cada run
 ├── discovery.md             # requisitos + plano técnico (editável manualmente)
 ├── .env.example
 ├── .gitignore
@@ -78,16 +79,16 @@ cd agentes
 python discovery.py
 
 # rodar o pipeline de geração e revisão de código
-python orquestrador.py
+python pipeline_sequencial.py
 
 # permitir mais tentativas de correção pelo Dev
-python orquestrador.py --max-iter 5
+python pipeline_sequencial.py --max-iter 5
 
 # regenerar o discovery (ex: mudança de escopo)
 python discovery.py --force
 ```
 
-> **Dica:** após rodar `discovery.py`, abra `discovery.md` na raiz e edite os requisitos ou o plano técnico antes de rodar o orquestrador.
+> **Dica:** após rodar `discovery.py`, abra `discovery.md` na raiz e edite os requisitos ou o plano técnico antes de rodar o pipeline.
 
 ## Como funciona
 
@@ -103,7 +104,7 @@ python discovery.py --force
 5. **QA** analisa o código e retorna um JSON com `veredito`, `bugs`, `cobertura` e `deve_reiterar`
 6. Se `deve_reiterar = true`, o feedback volta ao Dev para correção — o ciclo se repete até aprovação ou limite de iterações
 7. **Reviewer** compara o código gerado com a versão anterior e aponta evoluções e regressões
-8. Ao final, o código é salvo em `outputs/codigo_gerado_<timestamp>.py` e o log em `agentes/logs/`
+8. Ao final, o código é salvo em `outputs/codigo_gerado_<timestamp>.py` e o log em `logs/`
 
 ## Vereditos do QA
 
